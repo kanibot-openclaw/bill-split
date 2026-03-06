@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { initDb } from '@/lib/db';
-import { sql } from '@vercel/postgres';
+import { initDb, query } from '@/lib/db';
 import { z } from 'zod';
 
 const CreateBody = z.object({
@@ -18,10 +17,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!parsed.success) return NextResponse.json({ error: 'Invalid item' }, { status: 400 });
 
   const id = crypto.randomUUID();
-  await sql`
-    INSERT INTO bill_items (id, session_id, name, price_cents, quantity)
-    VALUES (${id}, ${sessionId}, ${parsed.data.name}, ${parsed.data.priceCents}, ${parsed.data.quantity})
-  `;
+  await query(
+    'INSERT INTO bill_items (id, session_id, name, price_cents, quantity) VALUES ($1, $2, $3, $4, $5)',
+    [id, sessionId, parsed.data.name, parsed.data.priceCents, parsed.data.quantity]
+  );
 
   return NextResponse.json({ id });
 }
@@ -44,12 +43,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const { id, name, priceCents, quantity } = parsed.data;
 
   // Ensure item belongs to session
-  const existing = await sql`SELECT id FROM bill_items WHERE id=${id} AND session_id=${sessionId} LIMIT 1`;
+  const existing = await query('SELECT id FROM bill_items WHERE id=$1 AND session_id=$2 LIMIT 1', [id, sessionId]);
   if (existing.rowCount === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  if (name !== undefined) await sql`UPDATE bill_items SET name=${name} WHERE id=${id}`;
-  if (priceCents !== undefined) await sql`UPDATE bill_items SET price_cents=${priceCents} WHERE id=${id}`;
-  if (quantity !== undefined) await sql`UPDATE bill_items SET quantity=${quantity} WHERE id=${id}`;
+  if (name !== undefined) await query('UPDATE bill_items SET name=$1 WHERE id=$2', [name, id]);
+  if (priceCents !== undefined) await query('UPDATE bill_items SET price_cents=$1 WHERE id=$2', [priceCents, id]);
+  if (quantity !== undefined) await query('UPDATE bill_items SET quantity=$1 WHERE id=$2', [quantity, id]);
 
   return NextResponse.json({ ok: true });
 }

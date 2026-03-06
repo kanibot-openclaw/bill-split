@@ -1,4 +1,46 @@
-import { sql } from '@vercel/postgres';
+import { Pool } from 'pg';
+
+function getConnectionString() {
+  return process.env.POSTGRES_URL || process.env.DATABASE_URL;
+}
+
+function getPool() {
+  const connectionString = getConnectionString();
+  if (!connectionString) {
+    // Don't throw at import time (Next build may load API routes).
+    throw new Error(
+      'Missing database connection string. Set POSTGRES_URL (recommended) or DATABASE_URL in your environment.'
+    );
+  }
+
+  // In dev, Next.js can hot-reload modules, so we stash the pool on global.
+  const globalForPg = globalThis as unknown as { __pgPool?: Pool };
+  const existing = globalForPg.__pgPool;
+  if (existing) return existing;
+
+  const pool = new Pool({
+    connectionString,
+    // Local Docker Postgres typically has no SSL.
+    // Hosted providers (Neon) require SSL.
+    ssl:
+      connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
+        ? undefined
+        : { rejectUnauthorized: false },
+  });
+
+  if (process.env.NODE_ENV !== 'production') globalForPg.__pgPool = pool;
+  return pool;
+}
+
+export async function query<T extends Record<string, unknown> = Record<string, unknown>>(
+  text: string,
+  params: unknown[] = []
+) {
+  const pool = getPool();
+  // pg types are a bit loose; this cast keeps our app code strict.
+  const res = await pool.query<T>(text, params as unknown as never[]);
+  return res;
+}
 
 let inited = false;
 
@@ -6,27 +48,24 @@ let inited = false;
 export async function initDb() {
   if (inited) return;
 
-  // bill_sessions
-  await sql`
+  await query(`
     CREATE TABLE IF NOT EXISTS bill_sessions (
       id TEXT PRIMARY KEY,
       currency TEXT NOT NULL DEFAULT 'CLP',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  `;
+  `);
 
-  // participants
-  await sql`
+  await query(`
     CREATE TABLE IF NOT EXISTS participants (
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL REFERENCES bill_sessions(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  `;
+  `);
 
-  // bill_items
-  await sql`
+  await query(`
     CREATE TABLE IF NOT EXISTS bill_items (
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL REFERENCES bill_sessions(id) ON DELETE CASCADE,
@@ -35,35 +74,32 @@ export async function initDb() {
       quantity INTEGER NOT NULL DEFAULT 1,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  `;
+  `);
 
-  // item_assignments (many-to-many)
-  await sql`
+  await query(`
     CREATE TABLE IF NOT EXISTS item_assignments (
       item_id TEXT NOT NULL REFERENCES bill_items(id) ON DELETE CASCADE,
       participant_id TEXT NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
       PRIMARY KEY (item_id, participant_id)
     );
-  `;
+  `);
 
-  // tip_config (1 per session)
-  await sql`
+  await query(`
     CREATE TABLE IF NOT EXISTS tip_config (
       session_id TEXT PRIMARY KEY REFERENCES bill_sessions(id) ON DELETE CASCADE,
       enabled BOOLEAN NOT NULL DEFAULT FALSE,
       percentage REAL NOT NULL DEFAULT 10,
       distribute_to_all BOOLEAN NOT NULL DEFAULT TRUE
     );
-  `;
+  `);
 
-  // tip_config_participants: only used when distribute_to_all=false
-  await sql`
+  await query(`
     CREATE TABLE IF NOT EXISTS tip_config_participants (
       session_id TEXT NOT NULL REFERENCES bill_sessions(id) ON DELETE CASCADE,
       participant_id TEXT NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
       PRIMARY KEY (session_id, participant_id)
     );
-  `;
+  `);
 
   inited = true;
 }

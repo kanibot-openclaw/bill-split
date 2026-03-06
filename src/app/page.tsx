@@ -14,8 +14,9 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to create bill');
       const data = (await res.json()) as { id: string };
       window.location.href = `/bill/${data.id}`;
-    } catch (e: any) {
-      setError(e?.message ?? 'Something went wrong');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Something went wrong';
+      setError(msg);
       setLoading(false);
     }
   }

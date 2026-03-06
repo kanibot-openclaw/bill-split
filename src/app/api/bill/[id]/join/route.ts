@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { initDb } from '@/lib/db';
-import { sql } from '@vercel/postgres';
+import { initDb, query } from '@/lib/db';
 import { z } from 'zod';
 
 const Body = z.object({ name: z.string().trim().min(1).max(40) });
@@ -16,16 +15,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   // Ensure session exists
-  const sessionRes = await sql`SELECT id FROM bill_sessions WHERE id = ${sessionId} LIMIT 1`;
+  const sessionRes = await query('SELECT id FROM bill_sessions WHERE id = $1 LIMIT 1', [sessionId]);
   if (sessionRes.rowCount === 0) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
   const participantId = crypto.randomUUID();
-  await sql`
-    INSERT INTO participants (id, session_id, name)
-    VALUES (${participantId}, ${sessionId}, ${parsed.data.name})
-  `;
+  await query('INSERT INTO participants (id, session_id, name) VALUES ($1, $2, $3)', [
+    participantId,
+    sessionId,
+    parsed.data.name,
+  ]);
 
   return NextResponse.json({ participantId });
 }

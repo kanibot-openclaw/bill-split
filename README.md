@@ -19,7 +19,7 @@ Collaborative restaurant bill splitting via a shareable live session.
 
 - Next.js (App Router) + TypeScript
 - TailwindCSS
-- Postgres via `@vercel/postgres` (tables auto-created on first run)
+- Postgres via `pg` (tables auto-created on first run)
 - OpenAI API for receipt parsing
 
 ## Data model
@@ -63,7 +63,7 @@ Open <http://localhost:3000>
 2. Import it into Vercel.
 3. Add a Postgres provider (Vercel marketplace / Neon).
 4. Set env vars in Vercel:
-   - `POSTGRES_URL`
+   - `POSTGRES_URL` (or `DATABASE_URL`)
    - `OPENAI_API_KEY`
 5. Deploy.
 

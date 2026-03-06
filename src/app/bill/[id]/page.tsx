@@ -2,6 +2,7 @@
 
 import useSWR from 'swr';
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import type { BillState } from '@/lib/types';
 import { computeTotals } from '@/lib/calc';
@@ -105,7 +106,7 @@ export default function BillPage({ params }: { params: { id: string } }) {
     }
   }
 
-  async function updateItem(itemId: string, patch: any) {
+  async function updateItem(itemId: string, patch: Partial<{ name: string; priceCents: number; quantity: number }>) {
     await fetch(`/api/bill/${billId}/items`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -154,8 +155,9 @@ export default function BillPage({ params }: { params: { id: string } }) {
 
       const items = json.items as Array<{ name: string; quantity: number; priceCents: number }>;
       setParsedReceiptItems(items);
-    } catch (e: any) {
-      setReceiptError(e?.message ?? 'Receipt parsing failed');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Receipt parsing failed';
+      setReceiptError(msg);
     } finally {
       setReceiptBusy(false);
     }
@@ -182,7 +184,7 @@ export default function BillPage({ params }: { params: { id: string } }) {
     );
   }
 
-  if (error || (data as any)?.error) {
+  if (error || (data && 'error' in data)) {
     return (
       <div className="min-h-screen bg-zinc-50 p-6">
         <div className="mx-auto max-w-md">
@@ -206,9 +208,9 @@ export default function BillPage({ params }: { params: { id: string } }) {
             <p className="mt-1 text-xs text-zinc-600">Session: {data.session.id.slice(0, 8)}…</p>
             {you ? <p className="mt-1 text-xs text-zinc-600">You: {you.name}</p> : null}
           </div>
-          <a href="/" className="text-sm font-medium text-zinc-700 underline">
+          <Link href="/" className="text-sm font-medium text-zinc-700 underline">
             New
-          </a>
+          </Link>
         </header>
 
         <section className="mt-4 rounded-2xl border bg-white p-4">
