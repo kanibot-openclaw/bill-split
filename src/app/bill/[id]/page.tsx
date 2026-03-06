@@ -16,9 +16,17 @@ function money(cents: number) {
   );
 }
 
-export default function BillPage({ params }: { params: { id: string } }) {
-  const billId = params.id;
-  const { data, error, isLoading, mutate } = useSWR<BillState>(`/api/bill/${billId}`, fetcher, {
+export default function BillPage({ params }: { params: Promise<{ id: string }> }) {
+  const [billId, setBillId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const p = await params;
+      setBillId(p.id);
+    })();
+  }, [params]);
+
+  const { data, error, isLoading, mutate } = useSWR<BillState>(billId ? `/api/bill/${billId}` : null, fetcher, {
     refreshInterval: 2000,
   });
 
@@ -38,6 +46,7 @@ export default function BillPage({ params }: { params: { id: string } }) {
   >([]);
 
   useEffect(() => {
+    if (!billId) return;
     const key = `bill:${billId}:participantId`;
     const val = window.localStorage.getItem(key);
     if (val) setParticipantId(val);
@@ -46,6 +55,7 @@ export default function BillPage({ params }: { params: { id: string } }) {
   const [shareUrl, setShareUrl] = useState('');
 
   useEffect(() => {
+    if (!billId) return;
     setShareUrl(window.location.href);
   }, [billId]);
 
