@@ -79,6 +79,7 @@ Open <http://localhost:3000>
 ## Known limitations (MVP)
 
 - No auth: anyone with the link can edit.
+- Guest bills currently expire after **30 minutes** (to protect free DB usage).
 - “Live” updates are implemented with client refresh (~2s) rather than realtime websockets.
 - Currency is hardcoded to CLP formatting.
 - No taxes automation; you can add tax as a manual line item.

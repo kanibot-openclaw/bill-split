@@ -52,9 +52,13 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS bill_sessions (
       id TEXT PRIMARY KEY,
       currency TEXT NOT NULL DEFAULT 'CLP',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NULL
     );
   `);
+
+  // If the table already existed (older versions), ensure the column is present.
+  await query(`ALTER TABLE bill_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NULL;`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS participants (
@@ -64,6 +68,9 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  // Helps cleanup queries.
+  await query(`CREATE INDEX IF NOT EXISTS bill_sessions_expires_at_idx ON bill_sessions(expires_at);`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS bill_items (

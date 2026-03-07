@@ -6,7 +6,7 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
   const { id } = await ctx.params;
 
   const sessionRes = await query(
-    `SELECT id, currency, created_at
+    `SELECT id, currency, created_at, expires_at
      FROM bill_sessions
      WHERE id = $1
      LIMIT 1`,
@@ -14,6 +14,11 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
   );
   if (sessionRes.rowCount === 0) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const s0 = sessionRes.rows[0] as unknown as { expires_at: string | null };
+  if (s0.expires_at && new Date(s0.expires_at).getTime() < Date.now()) {
+    return NextResponse.json({ error: 'Expired' }, { status: 404 });
   }
 
   const participantsRes = await query(

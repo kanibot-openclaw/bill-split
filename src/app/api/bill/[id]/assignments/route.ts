@@ -17,6 +17,13 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
 
   const { itemId, participantIds } = parsed.data;
 
+  // Ensure session exists and is not expired.
+  const sessionRes = await query(
+    'SELECT id FROM bill_sessions WHERE id=$1 AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1',
+    [sessionId]
+  );
+  if (sessionRes.rowCount === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
   const itemRes = await query('SELECT id FROM bill_items WHERE id=$1 AND session_id=$2 LIMIT 1', [itemId, sessionId]);
   if (itemRes.rowCount === 0) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
 

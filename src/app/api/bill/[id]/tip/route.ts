@@ -19,6 +19,13 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
 
   const { enabled, percentage, distributeToAll, selectedParticipantIds } = parsed.data;
 
+  // Ensure session exists and is not expired.
+  const sessionRes = await query(
+    'SELECT id FROM bill_sessions WHERE id=$1 AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1',
+    [sessionId]
+  );
+  if (sessionRes.rowCount === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
   await query(
     `INSERT INTO tip_config (session_id, enabled, percentage, distribute_to_all)
      VALUES ($1, $2, $3, $4)
